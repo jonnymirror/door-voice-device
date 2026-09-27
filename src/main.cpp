@@ -4,11 +4,12 @@ namespace {
 
 constexpr uint8_t DOOR_SENSOR_PIN = 2;
 constexpr unsigned long SERIAL_BAUD_RATE = 9600;
+constexpr unsigned long DEBOUNCE_TIME_MS = 50;
 
 // INPUT_PULLUP を使い、リードスイッチは D2 と GND の間へ接続する。
-// 磁石が近く、スイッチが閉じたときに LOW になる配置を想定する。
-// 実機で OPEN / CLOSED が逆の場合は false に変更する。
-constexpr bool SENSOR_LOW_MEANS_CLOSED = true;
+// 現在の実機では HIGH を CLOSED、LOW を OPEN として扱う。
+// 実機で OPEN / CLOSED が逆の場合は true に変更する。
+constexpr bool SENSOR_LOW_MEANS_CLOSED = false;
 
 enum class DoorState {
   Open,
@@ -16,6 +17,8 @@ enum class DoorState {
 };
 
 DoorState previousState;
+DoorState lastReadState;
+unsigned long lastReadChangedAt;
 
 void setupDoorSensor();
 DoorState readDoorState();
@@ -36,13 +39,22 @@ DoorState readDoorState() {
 
 void updateDoorState() {
   const DoorState currentState = readDoorState();
+  const unsigned long now = millis();
 
-  if (currentState == previousState) {
+  // 入力が変わるたびに、安定時間の計測をやり直す。
+  if (currentState != lastReadState) {
+    lastReadState = currentState;
+    lastReadChangedAt = now;
+  }
+
+  // unsigned long の差分で、millis() の桁あふれにも対応する。
+  if (lastReadState == previousState ||
+      now - lastReadChangedAt < DEBOUNCE_TIME_MS) {
     return;
   }
 
-  logStateTransition(previousState, currentState);
-  previousState = currentState;
+  logStateTransition(previousState, lastReadState);
+  previousState = lastReadState;
 }
 
 const char* doorStateToString(DoorState state) {
@@ -66,6 +78,8 @@ void setup() {
 
   setupDoorSensor();
   previousState = readDoorState();
+  lastReadState = previousState;
+  lastReadChangedAt = millis();
 
   Serial.print(F("Initial door state: "));
   Serial.println(doorStateToString(previousState));
