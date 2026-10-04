@@ -7,7 +7,7 @@ Arduino Unoを使ったドア開閉音声デバイス。
 
 現在は Phase 1〜4 まで実装・実機動作確認済み。Arduino Uno とリードスイッチでドアの
 `CLOSED` / `OPEN` を判定し、状態が変化したときだけシリアルモニターへ出力する。
-50msのチャタリング対策を実装済み。音声再生は未実装。
+50msのチャタリング対策を実装済み。Phase 5 の音声単体テストも実装・実機動作確認済み。
 
 ## Hardware
 
@@ -24,7 +24,8 @@ Phase 1〜4 実装・実機動作確認済み（ユーザーによる確認）�
 
 Arduino Uno とリードスイッチを使用し、開閉判定とシリアルモニターへの状態遷移出力の動作確認が完了した。
 Phase 4 では、通常の1回の開閉でログが各1回出ることを実機で確認した。
-音声再生は今後実装する。
+Phase 5 は2026年10月4日にユーザーが実機で初期化成功、音声の1回再生、再生後に繰り返さないことを確認した。
+ドア検知と音声再生の統合（Phase 6）は未実装。
 
 ## 配線（Phase 1〜4）
 
@@ -66,7 +67,139 @@ Door state changed: OPEN -> CLOSED
 磁石を小刻みに動かした場合、各状態が50ms以上続けばログが複数出るため、
 ログの数だけではチャタリング対策の成否を判断しない。
 
+## Phase 5：DFPlayer Mini 単体テスト
+
+`src/dfplayer_test.cpp` を `dfplayer_test` 環境で書き込むと、起動時に音声を1回だけ再生する。
+この環境ではドアセンサー処理は実行しない。従来の `uno` 環境は `src/main.cpp` を使用する。
+
+### 配線（Phase 5）
+
+用意するもの：Arduino Uno、DFPlayer Mini、4〜8Ωの小型スピーカー、
+1kΩ抵抗1本、ジャンパーワイヤ、ブレッドボード、音声入りmicroSD、USBケーブル。
+ここではArduinoをUSBで給電し、Arduinoの5VピンからDFPlayerへ給電する。
+
+まずUSBケーブルなどの電源をすべて外してから配線する。
+DFPlayerの端子は基板の印字で確認する。表裏を反転すると左右も反転するため、
+位置だけで判断せず、[公式ピン配置図](https://wiki.dfrobot.com/dfr0299#pinout) と照合する。
+以下の番号は [公式データシートのピン番号](https://image.dfrobot.com/image/data/DFR0299/DFPlayer%20Mini%20Manul.pdf)（2ページ目）。
+
+| 接続元 | 接続先（DFPlayer Mini） | 役割 |
+| --- | --- | --- |
+| ArduinoのPOWER端子にある5V | VCC（1番） | 電源供給 |
+| ArduinoのGND（どのGNDでも可） | GND（7番） | 電源・通信の共通基準 |
+| Arduinoのデジタル10番（D10） | TX（3番） | DFPlayerからArduinoへ応答を送る |
+| Arduinoのデジタル11番（D11）→ 1kΩ抵抗 | RX（2番） | ArduinoからDFPlayerへ命令を送る |
+| スピーカーの＋端子 | SPK1（8番） | スピーカー出力 |
+| スピーカーの－端子 | SPK2（6番） | スピーカー出力 |
+
+接続全体は次のとおり。
+
+```text
+Arduino Uno                         DFPlayer Mini
+  5V  ----------------------------- VCC (1)
+  GND ----------------------------- GND (7)
+  D10 (受信) <--------------------- TX  (3)
+  D11 (送信) ----[ 1kΩ抵抗 ]-------> RX  (2)
+
+                                    SPK1 (8) ---- スピーカー ＋
+                                    SPK2 (6) ---- スピーカー －
+```
+
+**1. 電源をつなぐ**
+
+Arduinoの `5V` とDFPlayerの `VCC`、Arduinoの `GND` とDFPlayerの `GND` をつなぐ。
+Arduinoの `VIN` や `3.3V` ではなく、今回は `5V` を使う。
+DFPlayerにはGNDが2本（7番・10番）あるが、この配線では7番を使用する。
+
+**2. 通信線をつなぐ**
+
+DFPlayerの `TX` をArduinoの `D10` へ直接つなぐ。
+Arduinoの `D11` は、1kΩ抵抗を1本通してDFPlayerの `RX` へつなぐ。
+抵抗には向きがない。D11→抵抗の片脚→抵抗のもう片脚→RXという直列接続にする。
+ブレッドボードでは、抵抗の両脚を電気的につながっていない別々の穴グループへ挿す。
+一般的なブレッドボードでは同じ番号のa〜eがつながっているため、同じ側の異なる番号の行を使う。
+両脚を同じ穴グループに挿すと抵抗が短絡される。
+
+`TX` は送信、`RX` は受信。送信側と受信側を組み合わせるため、TX同士・RX同士ではつながない。
+コードの `DFPLAYER_RX_PIN = 10` は「Arduino側の受信ピン」を意味する。
+Unoに印字された `RX/0`・`TX/1` は今回は使用しない。
+1kΩ抵抗の直列接続は [DFRobot公式の接続説明](https://wiki.dfrobot.com/dfr0299/docs/20906) に基づく。
+
+**3. スピーカーをつなぐ**
+
+アンプを内蔵しない2端子の小型スピーカーを、`SPK1` と `SPK2` の間へつなぐ。
+スピーカーの－端子もArduinoのGNDへは接続しない。
+`DAC_L`・`DAC_R` は今回のスピーカー接続には使用しない。
+`BUSY`・`IO1`・`IO2`・`ADKEY1`・`ADKEY2`・`USB+`・`USB-` も未接続でよい。
+
+**4. microSDを挿し、USBで給電する**
+
+下記の構成で音声を保存したmicroSDを、電源OFFの状態でDFPlayerへ挿入する。
+配線後にArduinoをUSBでPCへ接続し、後述のコマンドで書き込む。
+Phase 5ではリードスイッチは不要。既存のD2–GNDの配線は残してもよい。
+
+ブレッドボードの電源レールを使う場合は、5Vを＋レール、GNDを－レールへつなぐ。
+途中で分断されている電源レールもあるため、実際の導通を確認する。
+
+### 音声ファイル
+
+microSDは32GB以下・FAT16またはFAT32を使用する。
+配線・カード仕様は [DFRobot公式資料](https://wiki.dfrobot.com/dfr0299) を参照。
+
+作成済みの `0001.wav`（プロジェクト直下）を、microSDの次の位置へコピーする。
+音声形式は24kHz・16bit・モノラルの非圧縮PCM WAV、長さは約1.07秒。拡張子は変更しない。
+音声：VOICEVOX:春日部つむぎ
+
+```text
+microSD/
+└── mp3/
+    └── 0001.wav
+```
+
+`playMp3Folder(1)` でこのファイルを指定する。ルート直下には置かない。
+音量は `src/dfplayer_test.cpp` の `DEFAULT_VOLUME = 20`（範囲0〜30）で調整できる。
+
+### ビルド・書き込み・確認
+
+```powershell
+pio run -e dfplayer_test
+pio run -e dfplayer_test -t upload
+pio device monitor -e dfplayer_test
+```
+
+モニターを開いてからArduinoのRESETボタンを押すと、起動ログと再生を確認できる。
+リセットするたびに1回再生する。
+
+```text
+DFPlayer standalone test (Phase 5)
+Initializing DFPlayer... (may take several seconds)
+DFPlayer initialized.
+Playback requested: /mp3/0001.wav
+```
+
+`Playback requested` は再生コマンドを送ったことを示す。実際に音声が聞こえることと、
+終了後に自動で繰り返し再生しないことを確認する。終了通知を受信すると `Playback finished` が出る。
+初期化に失敗した場合は再生せず、配線・電源・カードの確認を促すログを出す。
+再生中の通信エラーやファイルエラーもログへ出力する。修正後はRESETで再試行する。
+
+初期化タイムアウトの調査用に、起動後3秒待ってから初期化を開始する。
+`dfplayer_test` 環境では `-D_DEBUG=0` により、ライブラリが `sending:`（送信）と
+`received:`（受信）の生データを16進数で表示する。
+DFPlayerライブラリはマクロの定義有無でログを有効にする。値を0にしてSoftwareSerial側の定義と合わせている。
+`sending:` だけではDFPlayerが命令を受信したとは判断できない。
+`received:` があっても、ノイズや不正な応答の場合があるため、内容とイベントログを併せて確認する。
+初期化失敗後も遅れて届く通知を記録するが、成功扱いにして再生は行わない。
+
+ドアセンサーのテストへ戻す場合は `pio run -e uno -t upload` で書き直す。
+`pio run` の既定環境も引き続き `uno`。
+
+### 実機確認時の接触不良
+
+初期化時に `DFPlayer communication timed out.` が出て、受信ログがない状態が発生した。
+DFPlayerのブレッドボードへの差し込みが浅く、挿し直した後に初期化と音声再生が成功した。
+同じ症状では、USBを抜いてからピンの差し込みを確認する。
+ブレッドボード上の電源用の穴で電圧を測れても、DFPlayerのピンまで接触しているとは限らない。
+
 ## 次のステップ
 
-次は Phase 5（DFPlayer Mini 単体での音声再生テスト）、
-Phase 6（ドアの開閉検知と音声再生の統合）の順に進める。
+次は Phase 6（ドアの開閉検知と音声再生の統合）へ進める。
