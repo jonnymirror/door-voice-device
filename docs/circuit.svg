@@ -1,0 +1,82 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 760" role="img" aria-labelledby="title desc">
+  <title id="title">ドア開閉音声デバイスの回路図（Phase 6）</title>
+  <desc id="desc">Arduino UnoのD2からリードスイッチを介してGNDへ接続。D10はDFPlayer MiniのTX、D11は1キロオームの抵抗を介してDFPlayerのRXへ接続。Arduinoの5VとGNDからDFPlayerへ給電し、DFPlayerのSPK1とSPK2の間にスピーカーを接続する。</desc>
+  <style>
+    text { font-family: "Yu Gothic", "Meiryo", sans-serif; fill: #17202e; }
+    .title { font-size: 30px; font-weight: 700; }
+    .sub { font-size: 16px; fill: #516174; }
+    .part { fill: #f7f9fc; stroke: #394b62; stroke-width: 2; }
+    .part-title { font-size: 25px; font-weight: 700; }
+    .pin { font-size: 20px; font-weight: 700; }
+    .note { font-size: 17px; }
+    .small { font-size: 15px; fill: #516174; }
+    .wire { fill: none; stroke-width: 4; stroke-linecap: round; stroke-linejoin: round; }
+    .sensor { stroke: #14815e; }
+    .serial { stroke: #2466b7; }
+    .power { stroke: #c64141; }
+    .ground { stroke: #59606b; }
+    .speaker { stroke: #7653a9; }
+  </style>
+
+  <rect width="1280" height="760" fill="#fff"/>
+  <text x="64" y="62" class="title">ドア開閉音声デバイス｜現在の回路（Phase 6）</text>
+  <text x="64" y="94" class="sub">Arduino Uno + リードスイッチ + DFPlayer Mini + 1kΩ抵抗 + スピーカー</text>
+
+  <!-- Components -->
+  <rect x="64" y="172" width="316" height="484" rx="14" class="part"/>
+  <text x="90" y="218" class="part-title">Arduino Uno</text>
+  <text x="90" y="246" class="small">USBから給電</text>
+  <rect x="760" y="172" width="302" height="484" rx="14" class="part"/>
+  <text x="786" y="218" class="part-title">DFPlayer Mini</text>
+  <text x="786" y="246" class="small">microSD: /mp3/0001.wav</text>
+
+  <!-- Pin labels -->
+  <text x="328" y="307" class="pin">D2</text>
+  <text x="316" y="367" class="pin">D10</text>
+  <text x="316" y="427" class="pin">D11</text>
+  <text x="322" y="547" class="pin">5V</text>
+  <text x="305" y="627" class="pin">GND</text>
+  <text x="784" y="367" class="pin">TX (3)</text>
+  <text x="784" y="427" class="pin">RX (2)</text>
+  <text x="784" y="547" class="pin">VCC (1)</text>
+  <text x="784" y="627" class="pin">GND (7)</text>
+  <text x="962" y="357" class="pin">SPK1 (8)</text>
+  <text x="962" y="447" class="pin">SPK2 (6)</text>
+
+  <!-- Door sensor: an open reed-contact symbol, second terminal to GND -->
+  <path d="M380 290 H520" class="wire sensor"/>
+  <circle cx="520" cy="290" r="5" fill="#14815e"/>
+  <circle cx="634" cy="290" r="5" fill="#14815e"/>
+  <path d="M526 286 L620 262" class="wire sensor"/>
+  <path d="M639 290 H684 V315" class="wire sensor"/>
+  <path d="M667 315 H701 M673 323 H695 M679 331 H689" class="wire ground"/>
+  <text x="526" y="226" class="note">リードスイッチ</text>
+  <text x="526" y="250" class="small">磁石で接点が切り替わる</text>
+  <text x="650" y="358" class="small">GND</text>
+
+  <!-- UART: TX/RX crossed by function, not by wire -->
+  <path d="M380 350 H760" class="wire serial"/>
+  <text x="468" y="337" class="small">Arduino受信 ← DFPlayer送信</text>
+  <path d="M380 410 H506" class="wire serial"/>
+  <path d="M634 410 H760" class="wire serial"/>
+  <path d="M506 410 H520 L531 398 L547 422 L563 398 L579 422 L595 398 L611 422 L622 410 H634" class="wire serial"/>
+  <text x="536" y="387" class="pin">1kΩ</text>
+  <text x="449" y="453" class="small">Arduino送信 → DFPlayer受信</text>
+
+  <!-- Power and common ground -->
+  <path d="M380 530 H760" class="wire power"/>
+  <path d="M380 610 H760" class="wire ground"/>
+  <text x="520" y="520" class="small">Arduinoの5Vから給電</text>
+  <text x="514" y="600" class="small">共通GND</text>
+
+  <!-- Direct speaker output; neither terminal is tied to GND -->
+  <path d="M1062 340 H1142 V370 H1160" class="wire speaker"/>
+  <path d="M1062 430 H1142 V400 H1160" class="wire speaker"/>
+  <rect x="1160" y="367" width="15" height="36" fill="#fff" stroke="#7653a9" stroke-width="3"/>
+  <path d="M1175 371 L1209 347 V423 L1175 399 Z" fill="#eee8f7" stroke="#7653a9" stroke-width="3"/>
+  <text x="1074" y="468" class="note">スピーカー</text>
+  <text x="1098" y="492" class="small">4〜8Ω</text>
+
+  <rect x="64" y="684" width="1152" height="48" rx="8" fill="#eef3f7"/>
+  <text x="82" y="714" class="note">D2はINPUT_PULLUP。現在の設定はHIGH＝CLOSED、LOW＝OPEN。スピーカーはSPK1–SPK2間に接続。</text>
+</svg>

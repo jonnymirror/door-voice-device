@@ -206,6 +206,11 @@ Phase 1〜4のリードスイッチ（D2–GND）と、Phase 5のDFPlayer・ス�
 両方のGNDはArduinoで共通にする。配線を変更する際はUSBを抜く。
 microSDの `/mp3/0001.wav` をそのまま使う。
 
+![現在の回路図：Arduino Uno、リードスイッチ、DFPlayer Mini、抵抗、スピーカー](docs/circuit.svg)
+
+[回路図を単独で開く](docs/circuit.svg)。図中のDFPlayerの番号はモジュールのピン番号。
+ブレッドボードの穴番号ではない。磁石はリードスイッチを動かすためのもので、電線は接続しない。
+
 既定の `uno` 環境をArduinoへ書き込み、シリアルモニターを開く。
 
 ```powershell
