@@ -1,10 +1,17 @@
 #include <Arduino.h>
+#include <DFRobotDFPlayerMini.h>
+#include <SoftwareSerial.h>
 
 namespace {
 
 constexpr uint8_t DOOR_SENSOR_PIN = 2;
+constexpr uint8_t DFPLAYER_RX_PIN = 10;  // Arduino側の受信ピン
+constexpr uint8_t DFPLAYER_TX_PIN = 11;  // Arduino側の送信ピン
 constexpr unsigned long SERIAL_BAUD_RATE = 9600;
 constexpr unsigned long DEBOUNCE_TIME_MS = 50;
+constexpr unsigned long AUDIO_STARTUP_WAIT_MS = 3000;
+constexpr uint8_t DEFAULT_VOLUME = 20;  // 0〜30
+constexpr uint16_t LEAVING_TRACK_NUMBER = 1;  // microSD: /mp3/0001.wav
 
 // INPUT_PULLUP を使い、リードスイッチは D2 と GND の間へ接続する。
 // 現在の実機では HIGH を CLOSED、LOW を OPEN として扱う。
@@ -19,10 +26,16 @@ enum class DoorState {
 DoorState previousState;
 DoorState lastReadState;
 unsigned long lastReadChangedAt;
+SoftwareSerial audioSerial(DFPLAYER_RX_PIN, DFPLAYER_TX_PIN);
+DFRobotDFPlayerMini player;
+bool audioReady = false;
 
 void setupDoorSensor();
 DoorState readDoorState();
 void updateDoorState();
+void setupAudio();
+void playLeavingVoice();
+void reportAudioEvent();
 const char* doorStateToString(DoorState state);
 void logStateTransition(DoorState from, DoorState to);
 
@@ -53,8 +66,54 @@ void updateDoorState() {
     return;
   }
 
-  logStateTransition(previousState, lastReadState);
+  const DoorState oldState = previousState;
   previousState = lastReadState;
+  logStateTransition(oldState, previousState);
+
+  if (oldState == DoorState::Closed && previousState == DoorState::Open) {
+    playLeavingVoice();
+  }
+}
+
+void setupAudio() {
+  audioSerial.begin(SERIAL_BAUD_RATE);
+  Serial.println(F("Initializing DFPlayer..."));
+  delay(AUDIO_STARTUP_WAIT_MS);
+
+  audioReady = player.begin(audioSerial, true, true);
+  if (!audioReady) {
+    Serial.println(F("DFPlayer initialization failed. Door logs remain available."));
+    return;
+  }
+
+  player.volume(DEFAULT_VOLUME);
+  delay(200);
+  Serial.println(F("DFPlayer initialized."));
+}
+
+void playLeavingVoice() {
+  if (!audioReady) {
+    Serial.println(F("Voice skipped: DFPlayer is not ready."));
+    return;
+  }
+
+  Serial.println(F("Playing voice: leaving"));
+  player.playMp3Folder(LEAVING_TRACK_NUMBER);
+}
+
+void reportAudioEvent() {
+  if (!audioReady || !player.available()) {
+    return;
+  }
+
+  const uint8_t type = player.readType();
+  const int value = player.read();
+  if (type == DFPlayerError) {
+    Serial.print(F("DFPlayer error code: "));
+    Serial.println(value);
+  } else if (type == DFPlayerPlayFinished) {
+    Serial.println(F("Voice playback finished."));
+  }
 }
 
 const char* doorStateToString(DoorState state) {
@@ -77,6 +136,7 @@ void setup() {
   Serial.println(F("Initializing..."));
 
   setupDoorSensor();
+  setupAudio();
   previousState = readDoorState();
   lastReadState = previousState;
   lastReadChangedAt = millis();
@@ -88,4 +148,5 @@ void setup() {
 
 void loop() {
   updateDoorState();
+  reportAudioEvent();
 }
